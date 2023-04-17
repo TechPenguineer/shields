@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: services/contributor-count.js</title>
+    <title>JSDoc: Tutorial: authentication</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,64 +17,27 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: services/contributor-count.js</h1>
+    <h1 class="page-title">Tutorial: authentication</h1>
 
-    
-
-
-
-    
     <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/**
- * Common functions and utilities for tasks related to contributor count.
- *
- * @module
- */
 
-import { metric } from './text-formatters.js'
+<header>
+    
 
-/**
- * Determines the color used for a badge based on the contributor count.
- * The color varies from red to bright green as the contributor count increases.
- *
- * @param {number} contributorCount Contributor count
- * @returns {string} Badge color
- */
-function contributorColor(contributorCount) {
-  if (contributorCount > 2) {
-    return 'brightgreen'
-  } else if (contributorCount === 2) {
-    return 'yellow'
-  } else {
-    return 'red'
-  }
-}
+    <h2>authentication</h2>
+</header>
 
-/**
- * Handles rendering concerns of badges that display contributor count.
- * Determines the message and color of the badge according to the contributor count.
- *
- * @param {object} attrs Refer to individual attributes
- * @param {string} [attrs.label] If provided then badge label is set to this value
- * @param {number} attrs.contributorCount Contributor count
- * @returns {object} Badge with label, message and color properties
- */
-function renderContributorBadge({ label, contributorCount }) {
-  return {
-    label,
-    message: metric(contributorCount),
-    color: contributorColor(contributorCount),
-  }
-}
+<article>
+    <h1>Badges Requiring Authentication</h1>
+<p>There are two patterns for how shields.io can interact with APIs that require auth:</p>
+<ol>
+<li>We can store one token at the service level which allows us to read public data for everyone's projects, or lift a rate limit. If you are looking for information on configuring credentials for a self-hosted instance see https://github.com/badges/shields/blob/master/doc/server-secrets.md</li>
+<li>If every user needs to provide their own token, that has to be a token which can be passed to us as a query param in the badge URL. This means it must be possible to generate a key or token that can be exposed in a public github README public with no negative consequences. (i.e: that key or token only exposes public metrics).</li>
+</ol>
+<p>If every user would need to supply their own token for some particular service and it is only possible to generate a key or token which allows access to sensitive data or allows write access to resources, we can't provide an integration for this service.</p>
+</article>
 
-export { contributorColor, renderContributorBadge }
-</code></pre>
-        </article>
-    </section>
-
-
-
+</section>
 
 </div>
 

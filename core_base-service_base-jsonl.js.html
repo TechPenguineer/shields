@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: services/validators.js</title>
+    <title>JSDoc: Source: core/base-service/base-jsonl.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: services/validators.js</h1>
+    <h1 class="page-title">Source: core/base-service/base-jsonl.js</h1>
 
     
 
@@ -27,97 +27,87 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * This module contains commonly used validators.
- *
  * @module
  */
 
-import {
-  semver as joiSemver,
-  semverRange as joiSemverRange,
-} from 'joi-extension-semver'
-import joi from 'joi'
-const Joi = joi.extend(joiSemver).extend(joiSemverRange)
+import BaseService from './base.js'
+import { parseJsonl } from './jsonl.js'
 
 /**
- * Joi validator that checks if a value is a number, an integer, and greater than or equal to zero.
+ * Services which query a JSONL endpoint should extend BaseJsonlService
  *
- * @type {Joi}
+ * @abstract
  */
-const optionalNonNegativeInteger = Joi.number().integer().min(0)
+class BaseJsonlService extends BaseService {
+  /**
+   * Parse data from a JSONL endpoint
+   *
+   * @param {string} buffer JSONL response from upstream API
+   * @returns {object[]} Parsed response
+   */
+  _parseJsonl(buffer) {
+    return parseJsonl(buffer)
+  }
 
-export { optionalNonNegativeInteger }
+  static headers = {
+    Accept: 'application/jsonl, application/x-ndjson, text/plain',
+  }
 
-/**
- * Joi validator that checks if a value is a number, an integer, greater than or equal to zero and the value must be present.
- *
- * @type {Joi}
- */
-export const nonNegativeInteger = optionalNonNegativeInteger.required()
+  /**
+   * Request data from an upstream API serving JSONL,
+   * parse it line-by-line and validate each entry against a schema
+   *
+   * @param {object} attrs Refer to individual attrs
+   * @param {Joi} attrs.schema Joi schema to validate each response line against
+   * @param {string} attrs.url URL to request
+   * @param {object} [attrs.options={}] Options to pass to got. See
+   *    [documentation](https://github.com/sindresorhus/got/blob/main/documentation/2-options.md)
+   * @param {object} [attrs.httpErrors={}] Key-value map of status codes
+   *    and custom error messages e.g: `{ 404: 'package not found' }`.
+   *    This can be used to extend or override the
+   *    [default](https://github.com/badges/shields/blob/master/core/base-service/check-error-response.js#L5)
+   * @param {object} [attrs.systemErrors={}] Key-value map of got network exception codes
+   *    and an object of params to pass when we construct an Inaccessible exception object
+   *    e.g: `{ ECONNRESET: { prettyMessage: 'connection reset' } }`.
+   *    See {@link https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md#errorcodes got error codes}
+   *    for allowed keys
+   *    and {@link module:core/base-service/errors~RuntimeErrorProps} for allowed values
+   * @param {number[]} [attrs.logErrors=[429]] An array of http error codes
+   *    that will be logged (to sentry, if configured).
+   * @param {string} [attrs.prettyErrorMessage='invalid response data']
+   *    Error message to surface when schema validation fails.
+   * @returns {object[]} Parsed response
+   * @see https://github.com/sindresorhus/got/blob/main/documentation/2-options.md
+   */
+  async _requestJsonl({
+    schema,
+    url,
+    options = {},
+    httpErrors = {},
+    systemErrors = {},
+    logErrors = [429],
+    prettyErrorMessage = 'invalid response data',
+  }) {
+    const mergedOptions = {
+      ...{ headers: this.constructor.headers },
+      ...options,
+    }
+    const { buffer } = await this._request({
+      url,
+      options: mergedOptions,
+      httpErrors,
+      systemErrors,
+      logErrors,
+    })
+    const jsonl = this._parseJsonl(buffer)
 
-/**
- * Joi validator that checks if a value is a number, an integer and the value must be present.
- *
- * @type {Joi}
- */
-export const anyInteger = Joi.number().integer().required()
+    return jsonl.map(line =>
+      this.constructor._validate(line, schema, { prettyErrorMessage }),
+    )
+  }
+}
 
-/**
- * Joi validator that checks if a value is a valid semantic versioning string and the value must be present.
- *
- * @type {Joi}
- */
-export const semver = Joi.semver().valid().required()
-
-/**
- * Joi validator that checks if a value is a valid semantic versioning range and the value must be present.
- *
- * @type {Joi}
- */
-export const semverRange = Joi.semverRange().valid().required()
-
-/**
- * Joi validator that checks if a value is a string that matches a regular expression.
- * The regular expression matches strings that start with one or more digits, followed by zero or more groups of a dot and one or more digits,
- * followed by an optional suffix that starts with a dash or a plus sign and can contain any characters.
- * This validator can be used to validate properties that can be version strings with an optional suffix or absent.
- * For example, some valid values for this validator are: 1, 1.0, 1.0.0, 1.0.0-beta
- * Some invalid values for this validator are: abc, 1.a, 1.0-, .1
- *
- * @type {Joi}
- */
-export const optionalDottedVersionNClausesWithOptionalSuffix =
-  Joi.string().regex(/^\d+(\.\d+)*([-+].*)?$/)
-
-/**
- * Joi validator that checks if a value is a URL
- *
- * TODO: This accepts URLs with query strings and fragments, which for some purposes should be rejected.
- *
- * @type {Joi}
- */
-export const optionalUrl = Joi.string().uri({ scheme: ['http', 'https'] })
-
-/**
- * Joi validator that checks if a value is a URL and the value must be present.
- *
- * @type {Joi}
- */
-export const url = optionalUrl.required()
-
-/**
- * Joi validator for a file size in bytes (direct numeric value)
- *
- * @type {Joi}
- */
-export const fileSizeBytes = Joi.number().integer().positive().required()
-
-/**
- * Joi validator that checks if a value is a relative-only URI
- *
- * @type {Joi}
- */
-export const relativeUri = Joi.string().uri({ relativeOnly: true })
+export default BaseJsonlService
 </code></pre>
         </article>
     </section>
